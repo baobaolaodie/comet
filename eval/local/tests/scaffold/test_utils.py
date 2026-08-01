@@ -6,6 +6,7 @@ import subprocess
 from pathlib import Path
 
 import dotenv
+import pytest
 
 from scaffold.python import utils
 from scaffold.python.skill_parser import load_skill_content, parse_skill_md
@@ -215,6 +216,45 @@ def test_docker_harness_has_no_native_review_sidecar_contract():
     assert "native_review_sidecar" not in docker_sh
     assert "NATIVE_REVIEW_CONTROLLER_VOLUME" not in docker_sh
     assert "COMET_NATIVE_REVIEW_VERIFIER_URL" not in docker_sh
+
+
+def test_get_image_name_falls_back_to_environment_dockerfile(tmp_path: Path):
+    """get_image_name() resolves environment/Dockerfile when dir/Dockerfile is absent.
+
+    docker_build() falls back to environment/Dockerfile, so get_image_name() must
+    apply the same rule; otherwise the fallback in docker_build() is dead code and
+    building a workspace that only carries an environment/Dockerfile always fails.
+    """
+    env_dir = tmp_path / "environment"
+    env_dir.mkdir()
+    (env_dir / "Dockerfile").write_text("FROM python:3.11-slim\n", encoding="utf-8")
+
+    script = (
+        'source "$1"; '
+        'image=$(get_image_name "$2") || { echo "image lookup failed"; exit 1; }; '
+        'echo "image=$image"'
+    )
+    try:
+        result = subprocess.run(
+            [
+                utils.BASH_EXEC,
+                "-c",
+                script,
+                "_",
+                utils._to_bash_path(utils.SHELL_DIR / "docker.sh"),
+                utils._to_bash_path(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+    except FileNotFoundError:
+        pytest.skip("bash not available")
+
+    assert result.returncode == 0, f"get_image_name failed (stderr: {result.stderr})"
+    assert "image=skillbench:" in result.stdout
 
 
 def test_run_claude_fixture_defaults_langsmith_hook_log_path():
