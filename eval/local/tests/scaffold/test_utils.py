@@ -258,7 +258,10 @@ def test_get_image_name_falls_back_to_environment_dockerfile(tmp_path: Path):
     env_dir.mkdir()
     (env_dir / "Dockerfile").write_text("FROM python:3.11-slim\n", encoding="utf-8")
 
-    assert "image=skillbench:" in _get_image_name(tmp_path)
+    root_dir = tmp_path / "root"
+    root_dir.mkdir()
+    (root_dir / "Dockerfile").write_text("FROM python:3.11-slim\n", encoding="utf-8")
+    assert _get_image_name(tmp_path) == _get_image_name(root_dir)
 
 
 def test_get_image_name_prefers_root_dockerfile_over_environment(tmp_path: Path):
