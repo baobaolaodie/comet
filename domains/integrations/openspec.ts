@@ -253,13 +253,17 @@ async function copyGeneratedToolDirectory(
   }
 }
 
-async function mergeGeneratedToolDirectories(
+interface GeneratedToolCopy {
+  source: string;
+  destination: string;
+}
+
+async function resolveGeneratedToolCopies(
   stagingProject: string,
   projectPath: string,
   toolIds: readonly string[],
-  mirrorOpenCodePlatformIds: readonly string[],
-  projectMutationGuard?: ProjectMutationGuard,
-): Promise<void> {
+): Promise<GeneratedToolCopy[]> {
+  const copies: GeneratedToolCopy[] = [];
   const mergedDestinations = new Set<string>();
   for (const toolId of toolIds) {
     const platform = PLATFORMS.find((candidate) => candidate.openspecToolId === toolId);
@@ -282,14 +286,42 @@ async function mergeGeneratedToolDirectories(
         `OpenSpec generated an empty tool output for ${platform.id}: ${sourceDir} contains no skills or commands`,
       );
     }
+    copies.push({ source, destination });
+    mergedDestinations.add(destination);
+  }
+  return copies;
+}
+
+/**
+ * Validates that every requested platform produced non-empty staged tool output
+ * before any project file is written. Runs after the staging `openspec init`
+ * and before the artifact-root init/merge, so a missing or empty later platform
+ * cannot leave partially written artifacts or Skills behind.
+ */
+async function preflightGeneratedToolDirectories(
+  stagingProject: string,
+  projectPath: string,
+  toolIds: readonly string[],
+): Promise<void> {
+  await resolveGeneratedToolCopies(stagingProject, projectPath, toolIds);
+}
+
+async function mergeGeneratedToolDirectories(
+  stagingProject: string,
+  projectPath: string,
+  toolIds: readonly string[],
+  mirrorOpenCodePlatformIds: readonly string[],
+  projectMutationGuard?: ProjectMutationGuard,
+): Promise<void> {
+  const copies = await resolveGeneratedToolCopies(stagingProject, projectPath, toolIds);
+  for (const copy of copies) {
     await copyGeneratedToolDirectory(
       stagingProject,
-      source,
+      copy.source,
       projectPath,
-      destination,
+      copy.destination,
       projectMutationGuard,
     );
-    mergedDestinations.add(destination);
   }
 
   if (!toolIds.includes('opencode') || mirrorOpenCodePlatformIds.length === 0) return;
@@ -693,6 +725,7 @@ async function installOpenSpec(
           false,
           false,
         );
+        await preflightGeneratedToolDirectories(stagingProject, projectPath, toolIds);
       }
       await assertProjectMutationAllowed(projectMutationGuard, 'before');
       const artifactBase = artifactLayout === 'docs' ? path.join(projectPath, 'docs') : projectPath;

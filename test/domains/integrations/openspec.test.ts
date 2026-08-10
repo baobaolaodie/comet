@@ -260,6 +260,7 @@ describe('openspec', () => {
         expect(result).toBe('failed');
         expect(fs.existsSync(path.join(tmpDir, '.agents'))).toBe(false);
         expect(fs.existsSync(path.join(tmpDir, '.codex'))).toBe(false);
+        expect(fs.existsSync(path.join(tmpDir, 'openspec'))).toBe(false);
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }
@@ -292,6 +293,82 @@ describe('openspec', () => {
         const result = await installOpenSpec(tmpDir, ['codex'], 'project', false);
 
         expect(result).toBe('failed');
+        expect(fs.existsSync(path.join(tmpDir, 'openspec'))).toBe(false);
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it('preflights all requested platforms before writing project files when a later platform has no output', async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'comet-openspec-partial-missing-'));
+      try {
+        mockedExecFileSync.mockImplementation((command, args) => {
+          if (command === 'where' || command === 'which') return Buffer.from('/usr/bin/openspec');
+          if (command === 'openspec' && Array.isArray(args) && args[0] === '--version') {
+            return Buffer.from('1.8.0');
+          }
+          if (command === 'openspec' && Array.isArray(args) && args[0] === 'init') {
+            const target = unquoteWindowsArg(args[1]);
+            const tools = String(args[args.indexOf('--tools') + 1]);
+            if (tools.includes('claude')) {
+              stageOpenSpecSkills(target, 'claude');
+            } else {
+              fs.mkdirSync(path.join(target, 'openspec', 'changes', 'archive'), {
+                recursive: true,
+              });
+            }
+            return Buffer.from('ok');
+          }
+          return Buffer.from('ok');
+        });
+
+        const { installOpenSpec } = await import('../../../domains/integrations/openspec.js');
+        const result = await installOpenSpec(tmpDir, ['claude', 'codex'], 'project', false);
+
+        expect(result).toBe('failed');
+        // No partial updates: the earlier platform and the artifact root stay untouched.
+        expect(fs.existsSync(path.join(tmpDir, '.claude'))).toBe(false);
+        expect(fs.existsSync(path.join(tmpDir, '.agents'))).toBe(false);
+        expect(fs.existsSync(path.join(tmpDir, 'openspec'))).toBe(false);
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it('preflights all requested platforms before writing project files when a later platform is empty', async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'comet-openspec-partial-empty-'));
+      try {
+        mockedExecFileSync.mockImplementation((command, args) => {
+          if (command === 'where' || command === 'which') return Buffer.from('/usr/bin/openspec');
+          if (command === 'openspec' && Array.isArray(args) && args[0] === '--version') {
+            return Buffer.from('1.8.0');
+          }
+          if (command === 'openspec' && Array.isArray(args) && args[0] === 'init') {
+            const target = unquoteWindowsArg(args[1]);
+            const tools = String(args[args.indexOf('--tools') + 1]);
+            if (tools === 'claude,codex') {
+              stageOpenSpecSkills(target, 'claude');
+              fs.mkdirSync(path.join(target, '.agents', 'skills'), { recursive: true });
+            } else if (tools === 'claude') {
+              stageOpenSpecSkills(target, 'claude');
+            } else {
+              fs.mkdirSync(path.join(target, 'openspec', 'changes', 'archive'), {
+                recursive: true,
+              });
+            }
+            return Buffer.from('ok');
+          }
+          return Buffer.from('ok');
+        });
+
+        const { installOpenSpec } = await import('../../../domains/integrations/openspec.js');
+        const result = await installOpenSpec(tmpDir, ['claude', 'codex'], 'project', false);
+
+        expect(result).toBe('failed');
+        // No partial updates: the earlier platform and the artifact root stay untouched.
+        expect(fs.existsSync(path.join(tmpDir, '.claude'))).toBe(false);
+        expect(fs.existsSync(path.join(tmpDir, '.agents'))).toBe(false);
+        expect(fs.existsSync(path.join(tmpDir, 'openspec'))).toBe(false);
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }
