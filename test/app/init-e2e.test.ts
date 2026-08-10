@@ -6,6 +6,7 @@ import os from 'os';
 import path from 'path';
 import { parse } from 'yaml';
 import { getProjectRegistryPath } from '../../platform/install/project-registry.js';
+import { PLATFORMS } from '../../platform/install/platforms.js';
 
 vi.mock('child_process', () => ({
   execFileSync: vi.fn(),
@@ -90,14 +91,30 @@ function mockExternalSuccess(options: { openSpecConfig?: 'healthy' | 'missing' |
       return Buffer.from('1.5.0');
     }
     if (cmd === 'openspec' && cmdArgs[0] === 'init') {
-      const targetPath = cmdArgs[1];
+      const targetPath = cmdArgs[1]?.replace(/^"|"$/g, '');
       if (targetPath) {
-        const openSpecRoot = path.join(targetPath, 'openspec');
-        mkdirSync(path.join(openSpecRoot, 'changes', 'archive'), { recursive: true });
-        if (openSpecConfig === 'healthy') {
-          writeFileSync(path.join(openSpecRoot, 'config.yaml'), 'schema: spec-driven\n');
-        } else if (openSpecConfig === 'corrupt') {
-          writeFileSync(path.join(openSpecRoot, 'config.yaml'), 'schema: [broken\n');
+        const toolsIndex = cmdArgs.indexOf('--tools');
+        const tools = toolsIndex >= 0 ? cmdArgs[toolsIndex + 1] : undefined;
+        if (tools && tools !== 'none') {
+          for (const toolId of tools.split(',')) {
+            const platform = PLATFORMS.find((candidate) => candidate.openspecToolId === toolId);
+            const stagedDir = path.join(
+              targetPath,
+              platform?.skillsDir ?? `.${toolId}`,
+              'skills',
+              'openspec-propose',
+            );
+            mkdirSync(stagedDir, { recursive: true });
+            writeFileSync(path.join(stagedDir, 'SKILL.md'), '# staged\n');
+          }
+        } else {
+          const openSpecRoot = path.join(targetPath, 'openspec');
+          mkdirSync(path.join(openSpecRoot, 'changes', 'archive'), { recursive: true });
+          if (openSpecConfig === 'healthy') {
+            writeFileSync(path.join(openSpecRoot, 'config.yaml'), 'schema: spec-driven\n');
+          } else if (openSpecConfig === 'corrupt') {
+            writeFileSync(path.join(openSpecRoot, 'config.yaml'), 'schema: [broken\n');
+          }
         }
       }
       return Buffer.from('ok');
