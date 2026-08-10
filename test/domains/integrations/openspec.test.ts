@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { execFileSync } from 'child_process';
-import { PLATFORMS } from '../../../platform/install/platforms.js';
+import { stageOpenSpecSkills, unquoteWindowsArg } from '../../helpers/openspec-test-utils.js';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -11,10 +11,6 @@ vi.mock('child_process', () => ({
 }));
 
 const mockedExecFileSync = vi.mocked(execFileSync);
-
-function unquoteWindowsArg(value: unknown): string {
-  return String(value).replace(/^"|"$/gu, '');
-}
 
 function createStagedOpenSpecCliMock(): (command: string, args: readonly unknown[]) => Buffer {
   return (command, args) => {
@@ -27,17 +23,7 @@ function createStagedOpenSpecCliMock(): (command: string, args: readonly unknown
       const target = unquoteWindowsArg(args[1]);
       const tools = args[args.indexOf('--tools') + 1];
       if (tools !== 'none') {
-        for (const toolId of String(tools).split(',')) {
-          const platform = PLATFORMS.find((candidate) => candidate.openspecToolId === toolId);
-          const generated = path.join(
-            target,
-            platform?.skillsDir ?? `.${toolId}`,
-            'skills',
-            'openspec-propose',
-          );
-          fs.mkdirSync(generated, { recursive: true });
-          fs.writeFileSync(path.join(generated, 'SKILL.md'), '# staged\n');
-        }
+        stageOpenSpecSkills(target, String(tools));
       }
       return Buffer.from('ok');
     }
