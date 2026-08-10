@@ -302,18 +302,18 @@ async function preflightGeneratedToolDirectories(
   stagingProject: string,
   projectPath: string,
   toolIds: readonly string[],
-): Promise<void> {
-  await resolveGeneratedToolCopies(stagingProject, projectPath, toolIds);
+): Promise<GeneratedToolCopy[]> {
+  return resolveGeneratedToolCopies(stagingProject, projectPath, toolIds);
 }
 
 async function mergeGeneratedToolDirectories(
+  copies: readonly GeneratedToolCopy[],
   stagingProject: string,
   projectPath: string,
   toolIds: readonly string[],
   mirrorOpenCodePlatformIds: readonly string[],
   projectMutationGuard?: ProjectMutationGuard,
 ): Promise<void> {
-  const copies = await resolveGeneratedToolCopies(stagingProject, projectPath, toolIds);
   for (const copy of copies) {
     await copyGeneratedToolDirectory(
       stagingProject,
@@ -708,6 +708,7 @@ async function installOpenSpec(
   let configHome: string | undefined;
   let configBackup: ConfigBackup | null = null;
   let stagingProject: string | undefined;
+  let generatedToolCopies: GeneratedToolCopy[] | undefined;
   try {
     const openspecEnv = createOpenSpecAllWorkflowsEnv();
     configHome = openspecEnv.configHome;
@@ -725,7 +726,11 @@ async function installOpenSpec(
           false,
           false,
         );
-        await preflightGeneratedToolDirectories(stagingProject, projectPath, toolIds);
+        generatedToolCopies = await preflightGeneratedToolDirectories(
+          stagingProject,
+          projectPath,
+          toolIds,
+        );
       }
       await assertProjectMutationAllowed(projectMutationGuard, 'before');
       const artifactBase = artifactLayout === 'docs' ? path.join(projectPath, 'docs') : projectPath;
@@ -743,9 +748,10 @@ async function installOpenSpec(
         };
       }
       await runOpenSpecInit(artifactBase, ['none'], openspecEnv.env, artifactMutationGuard, true);
-      if (stagingProject) {
+      if (stagingProject && generatedToolCopies) {
         await assertProjectMutationAllowed(projectMutationGuard, 'before', true);
         await mergeGeneratedToolDirectories(
+          generatedToolCopies,
           stagingProject,
           projectPath,
           toolIds,
