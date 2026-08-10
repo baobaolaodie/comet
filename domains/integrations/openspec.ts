@@ -165,6 +165,14 @@ function projectRelativePath(projectPath: string, target: string, label: string)
   return relative.split(path.sep).join('/');
 }
 
+/**
+ * Whether a staged OpenSpec tool directory contains any files (recursively).
+ *
+ * The staging project is a private temporary directory freshly written by the
+ * OpenSpec CLI, so the tree is small and bounded; walking it is cheap. This
+ * distinguishes "no output at all" from "only empty directories" so a missing
+ * or empty staged tool output fails the update instead of reporting success.
+ */
 async function hasGeneratedToolFiles(dir: string): Promise<boolean> {
   const entries = await fs.promises.readdir(dir, { withFileTypes: true });
   for (const entry of entries) {
