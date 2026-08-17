@@ -2,6 +2,12 @@
 
 All notable changes to @rpamis/comet will be documented in this file.
 
+## What's Changed [0.4.0-beta.21] - 2026-08-17
+
+### Fixed
+
+- **Classic design handoff refresh after Spec Patch**: Running `comet handoff <change> design --write` after OpenSpec artifacts changed no longer fails with a stale-handoff error, so the design guard can pass and the Classic full workflow proceeds from Design to Build.
+
 ## What's Changed [0.4.0-beta.20] - 2026-08-16
 
 ### Added
