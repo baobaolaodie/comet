@@ -1,4 +1,5 @@
 import { spawnSync } from 'child_process';
+import { createHash } from 'crypto';
 import { existsSync, promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
@@ -175,6 +176,16 @@ describe('Classic handoff command', () => {
     const afterHash = run(dir, 'state', 'get', 'demo', 'handoff_hash').stdout.trim();
     expect(afterHash).toMatch(/^[a-f0-9]{64}$/);
     expect(afterHash).not.toBe(beforeHash);
+
+    // The refreshed handoff must remain traceable by the design guard:
+    // its markdown must list the current SHA256 of every source file.
+    const md = await fs.readFile(
+      path.join(changeDir, '.comet', 'handoff', 'design-context.md'),
+      'utf8',
+    );
+    const updatedProposal = await fs.readFile(path.join(changeDir, 'proposal.md'), 'utf8');
+    const proposalHash = createHash('sha256').update(updatedProposal).digest('hex');
+    expect(md).toContain(`- SHA256: ${proposalHash}`);
   });
 
   it('reconciles a matching pending handoff and records recovery once', async () => {
