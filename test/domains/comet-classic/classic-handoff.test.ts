@@ -160,18 +160,21 @@ describe('Classic handoff command', () => {
     expect(existsSync(path.join(changeDir, '.comet', 'handoff'))).toBe(false);
   });
 
-  it('fails closed when source evidence changed after a completed handoff', async () => {
+  it('refreshes the design handoff when source evidence changed after a completed handoff', async () => {
     const dir = await makeProject();
     const changeDir = await seedDesignChange(dir);
     expect(run(dir, 'handoff', 'demo', 'design', '--write').status).toBe(0);
-    const before = await fs.readFile(path.join(changeDir, '.comet.yaml'), 'utf8');
+    const beforeHash = run(dir, 'state', 'get', 'demo', 'handoff_hash').stdout.trim();
+    expect(beforeHash).toMatch(/^[a-f0-9]{64}$/);
 
     await fs.appendFile(path.join(changeDir, 'proposal.md'), 'changed\n');
     const result = run(dir, 'handoff', 'demo', 'design', '--write');
 
-    expect(result.status).not.toBe(0);
-    expect(result.stderr).toContain('stale');
-    expect(await fs.readFile(path.join(changeDir, '.comet.yaml'), 'utf8')).toBe(before);
+    expect(result.status).toBe(0);
+    expect(result.stderr).toContain('refreshing stale design handoff');
+    const afterHash = run(dir, 'state', 'get', 'demo', 'handoff_hash').stdout.trim();
+    expect(afterHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(afterHash).not.toBe(beforeHash);
   });
 
   it('reconciles a matching pending handoff and records recovery once', async () => {
