@@ -469,6 +469,30 @@ async function appendRecoveryEvent(
   });
 }
 
+async function handoffMarkdownIsCurrent(
+  projectRoot: string,
+  changeDir: string,
+  contextMd: string,
+): Promise<boolean> {
+  const markdown = await readProtectedIfExists(
+    projectRoot,
+    contextMd,
+    'Classic handoff markdown output',
+  );
+  if (markdown === null) return false;
+  const lines = new Set(markdown.split(/\r?\n/u));
+  for (const file of await handoffSourceFiles(projectRoot, changeDir)) {
+    const content = await readProtectedIfExists(
+      projectRoot,
+      file,
+      `Classic handoff source ${file}`,
+    );
+    if (content === null) continue;
+    if (!lines.has(`- SHA256: ${hashText(content)}`)) return false;
+  }
+  return true;
+}
+
 async function completedHandoffIsCurrent(
   projectRoot: string,
   changeDir: string,
@@ -552,8 +576,14 @@ export const classicHandoffCommand: ClassicCommandHandler = async (args, options
       if (!active.stateExists) {
         throw new HandoffFailure(red(`ERROR: .comet.yaml not found at ${changeRef}/.comet.yaml`));
       }
-      if ((await readField(layout.projectRoot, changeDir, 'phase')) !== 'design') {
-        throw new HandoffFailure(red('ERROR: design handoff requires phase: design'));
+      const currentPhase = await readField(layout.projectRoot, changeDir, 'phase');
+      if (currentPhase !== 'design' && currentPhase !== 'build') {
+        // Issue #324: a Spec Patch after the guard advanced the phase to build
+        // must still be able to refresh the design handoff. The write path
+        // below only updates handoff context/hash and never transitions the
+        // run state outside full.design.handoff, so refreshing from build is
+        // safe and unblocks the workflow.
+        throw new HandoffFailure(red('ERROR: design handoff requires phase: design or build'));
       }
       for (const required of ['proposal.md', 'design.md', 'tasks.md']) {
         if (
@@ -674,7 +704,12 @@ export const classicHandoffCommand: ClassicCommandHandler = async (args, options
           contextMd,
           contextJsonRef,
           contextMdRef,
-        ))
+        )) &&
+        // Issue #324: even when the recorded hash was aligned, only treat the
+        // handoff as current if the on-disk markdown actually reflects the
+        // current source files. Otherwise --write would report success while
+        // leaving stale context files behind.
+        (await handoffMarkdownIsCurrent(layout.projectRoot, changeDir, contextMd))
       ) {
         output.stderr.push(green(`[HANDOFF] wrote ${contextJsonRef}`));
         output.stderr.push(green(`[HANDOFF] wrote ${contextMdRef}`));

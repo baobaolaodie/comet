@@ -23,11 +23,16 @@ afterEach(async () => {
   );
 });
 
-function run(cwd: string, ...args: string[]) {
-  const [command, ...rest] = args;
-  return spawnSync(process.execPath, [scriptByCommand[command], ...rest], {
+function run(cwd: string, ...args: (string | { env?: Record<string, string> })[]) {
+  const [command, ...restArgs] = args;
+  const last = restArgs[restArgs.length - 1];
+  const hasOptions = typeof last === 'object' && last !== null;
+  const envOptions = hasOptions ? (last as { env?: Record<string, string> }).env : undefined;
+  const rest = (hasOptions ? restArgs.slice(0, -1) : restArgs) as string[];
+  return spawnSync(process.execPath, [scriptByCommand[command as string], ...rest], {
     cwd,
     encoding: 'utf8',
+    env: { ...process.env, ...envOptions },
   });
 }
 
@@ -186,6 +191,52 @@ describe('Classic handoff command', () => {
     const updatedProposal = await fs.readFile(path.join(changeDir, 'proposal.md'), 'utf8');
     const proposalHash = createHash('sha256').update(updatedProposal).digest('hex');
     expect(md).toContain(`- SHA256: ${proposalHash}`);
+  });
+
+  it('rewrites stale context files even when the recorded hash was aligned', async () => {
+    const dir = await makeProject();
+    const changeDir = await seedDesignChange(dir);
+    expect(run(dir, 'handoff', 'demo', 'design', '--write').status).toBe(0);
+
+    // Simulate the workaround from issue #324: aligning the recorded hash to
+    // the new source hash without regenerating the context files.
+    await fs.appendFile(path.join(changeDir, 'proposal.md'), 'changed\n');
+    const hashOnly = run(dir, 'handoff', 'demo', '--hash-only').stdout.trim();
+    expect(hashOnly).toMatch(/^[a-f0-9]{64}$/);
+    expect(run(dir, 'state', 'set', 'demo', 'handoff_hash', hashOnly).status).toBe(0);
+
+    const result = run(dir, 'handoff', 'demo', 'design', '--write');
+    expect(result.status).toBe(0);
+
+    // The markdown must actually reflect the updated proposal.md now, not
+    // merely report success on a short-circuit path.
+    const md = await fs.readFile(
+      path.join(changeDir, '.comet', 'handoff', 'design-context.md'),
+      'utf8',
+    );
+    const updatedProposal = await fs.readFile(path.join(changeDir, 'proposal.md'), 'utf8');
+    const proposalHash = createHash('sha256').update(updatedProposal).digest('hex');
+    expect(md).toContain(`- SHA256: ${proposalHash}`);
+  });
+
+  it('refreshes the design handoff from the build phase after a Spec Patch', async () => {
+    const dir = await makeProject();
+    const changeDir = await seedDesignChange(dir);
+    expect(run(dir, 'handoff', 'demo', 'design', '--write').status).toBe(0);
+    const beforeHash = run(dir, 'state', 'get', 'demo', 'handoff_hash').stdout.trim();
+
+    // Advance to build, then Spec Patch the source evidence.
+    expect(
+      run(dir, 'state', 'set', 'demo', 'phase', 'build', { env: { COMET_FORCE_PHASE: '1' } })
+        .status,
+    ).toBe(0);
+    await fs.appendFile(path.join(changeDir, 'proposal.md'), 'build-phase change\n');
+
+    const result = run(dir, 'handoff', 'demo', 'design', '--write');
+    expect(result.status).toBe(0);
+    const afterHash = run(dir, 'state', 'get', 'demo', 'handoff_hash').stdout.trim();
+    expect(afterHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(afterHash).not.toBe(beforeHash);
   });
 
   it('reconciles a matching pending handoff and records recovery once', async () => {
