@@ -219,7 +219,7 @@ comet handoff <change-name> design --write
 comet guard <change-name> design --apply
 ```
 
-Adding, modifying, or removing a delta spec changes the handoff hash, so deleting a delta spec also requires regenerating the handoff; otherwise the stale handoff pack still embeds the removed spec and the design guard's traceability check cannot pass. If there are no delta spec changes, skip the handoff regeneration step. The state file updates automatically; no manual editing of other fields needed.
+Adding, modifying, or removing a delta spec changes the handoff hash, so deleting a delta spec also requires regenerating the handoff; otherwise the recorded `handoff_hash` no longer matches the current OpenSpec artifacts and the design guard blocks progress. If there are no delta spec changes, skip the handoff regeneration step. The state file updates automatically; no manual editing of other fields needed.
 
 ### 3a. Optional Active Context Compaction
 

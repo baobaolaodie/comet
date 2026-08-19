@@ -246,7 +246,7 @@ When creating an independent change, must invoke `/comet-open`, not `/opsx:new` 
 comet handoff <change-name> design --write
 ```
 
-Regeneration only updates the handoff context and hash; it does not change the `phase` field or the Runtime `currentStep`. The design and build guards validate the latest handoff pack, so you can continue in the Build phase after refreshing.
+Regeneration rebuilds the handoff from the current OpenSpec artifacts and updates `handoff_hash`; it does not change the `phase` field or the Runtime `currentStep`, so you can continue in the Build phase after refreshing.
 
 ### 5. Context Management
 

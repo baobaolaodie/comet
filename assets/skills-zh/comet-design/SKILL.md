@@ -220,7 +220,7 @@ comet handoff <change-name> design --write
 comet guard <change-name> design --apply
 ```
 
-delta spec 的增、改、删都会改变 handoff hash，因此删除 delta spec 同样必须重新生成 handoff；否则旧交接包会残留已删除的 spec，design guard 的可追踪性检查也无法通过。如果没有 delta spec 变更，跳过 handoff 重新生成步骤。状态文件自动更新，无需手动编辑其他字段。
+delta spec 的增、改、删都会改变 handoff hash，因此删除 delta spec 同样必须重新生成 handoff；否则记录的 `handoff_hash` 与当前 OpenSpec artifacts 不再匹配，design guard 将拒绝推进。如果没有 delta spec 变更，跳过 handoff 重新生成步骤。状态文件自动更新，无需手动编辑其他字段。
 
 ### 3a. 可选主动式上下文压缩
 

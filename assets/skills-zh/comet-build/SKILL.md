@@ -246,7 +246,7 @@ Open 阶段已经根据 `isolation` 准备好当前目录、分支或 Worktree�
 comet handoff <change-name> design --write
 ```
 
-重新生成只更新 handoff 上下文与 hash，不会改变 `phase` 字段或 Runtime `currentStep`；设计守卫与构建守卫都会校验最新交接包，刷新后可按 build 阶段继续推进。
+重新生成会从当前 OpenSpec artifacts 重建 handoff 并更新 `handoff_hash`，不会改变 `phase` 字段或 Runtime `currentStep`；刷新后可按 build 阶段继续推进。
 
 ### 5. 上下文管理
 
