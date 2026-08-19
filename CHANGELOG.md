@@ -13,6 +13,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Dashboard artifact previews**: Fullscreen previews now close with Escape, keep long tables horizontally scrollable, preserve readable table headers, and use a larger directory navigation scale.
 - **Hook allow-path documentation**: The website now explains how to configure project-relative `hook.allow_paths` directories for guarded workflow phases.
 - **On-demand change review**: The new `/comet-review` Skill reviews the current Native or Classic change against its implementation diff and existing evidence, reports prioritized correctness, security, edge-case, and coverage findings, and remains read-only without advancing or replacing Verify.
+- **Classic handoff refresh documentation**: `comet-design` now states that the handoff must be regenerated after a delta spec is added, modified, or removed, and `comet-build` documents that the handoff can be refreshed directly from the Build phase (`comet handoff <change> design --write`) without reverting the phase or Runtime step.
 
 ### Fixed
 

@@ -240,6 +240,14 @@ Open 阶段已经根据 `isolation` 准备好当前目录、分支或 Worktree�
 - 不提前同步到 main spec，归档时统一同步
 - 小规模增量直接改 delta spec 时，应在 commit message 中注明，便于归档时判断 design doc 漂移
 
+**handoff 同步**：delta spec 的增、改、删都会使设计交接包（`handoff_hash`）过期。Build 阶段可随时直接重新生成，无需回退当前 phase 或 step：
+
+```bash
+comet handoff <change-name> design --write
+```
+
+重新生成只更新 handoff 上下文与 hash，不会改变 `phase` 字段或 Runtime `currentStep`；设计守卫与构建守卫都会校验最新交接包，刷新后可按 build 阶段继续推进。
+
 ### 5. 上下文管理
 
 Build 是最长阶段，可能跨越大量任务。为支持上下文压缩后断点恢复：
