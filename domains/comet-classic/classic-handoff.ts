@@ -473,6 +473,7 @@ async function handoffMarkdownIsCurrent(
   projectRoot: string,
   changeDir: string,
   contextMd: string,
+  contextHash: string,
 ): Promise<boolean> {
   const markdown = await readProtectedIfExists(
     projectRoot,
@@ -481,6 +482,13 @@ async function handoffMarkdownIsCurrent(
   );
   if (markdown === null) return false;
   const lines = new Set(markdown.split(/\r?\n/u));
+  // Verifying the exact Context hash line catches not only stale sources but
+  // also sources that have since been removed from OpenSpec: a deleted delta
+  // spec no longer appears in the SHA256 loop below, so the loop alone would
+  // trivially pass for `--write` on aligned hashes while leaving the deleted
+  // spec embedded in the stale markdown. Any add/remove/edit of a source
+  // changes the computed hash, which must match the marker on disk.
+  if (!lines.has(`- Context hash: ${contextHash}`)) return false;
   for (const file of await handoffSourceFiles(projectRoot, changeDir)) {
     const content = await readProtectedIfExists(
       projectRoot,
@@ -709,7 +717,7 @@ export const classicHandoffCommand: ClassicCommandHandler = async (args, options
         // handoff as current if the on-disk markdown actually reflects the
         // current source files. Otherwise --write would report success while
         // leaving stale context files behind.
-        (await handoffMarkdownIsCurrent(layout.projectRoot, changeDir, contextMd))
+        (await handoffMarkdownIsCurrent(layout.projectRoot, changeDir, contextMd, contextHash))
       ) {
         output.stderr.push(green(`[HANDOFF] wrote ${contextJsonRef}`));
         output.stderr.push(green(`[HANDOFF] wrote ${contextMdRef}`));
