@@ -660,23 +660,16 @@ export const classicHandoffCommand: ClassicCommandHandler = async (args, options
         initialProjection.classic.handoffHash !== contextHash &&
         !recovering
       ) {
-        if (mode === '--write') {
-          // Issue #324: the design guard requires regenerating the handoff
-          // after OpenSpec artifacts change, and `--write` is the only legal
-          // invocation mode. An explicit --write therefore refreshes the
-          // completed handoff instead of being rejected as stale.
-          output.stderr.push(
-            yellow(
-              `[HANDOFF] refreshing stale design handoff: previous hash ${initialProjection.classic.handoffHash}`,
-            ),
-          );
-        } else {
-          throw new HandoffFailure(
-            red(
-              `ERROR: stale handoff detected: source hash ${contextHash} does not match completed hash ${initialProjection.classic.handoffHash}`,
-            ),
-          );
-        }
+        // Issue #324: the design guard requires regenerating the handoff
+        // after OpenSpec artifacts change, and `--write` is the only legal
+        // invocation mode (enforced by the usage guard above), so an explicit
+        // --write always refreshes the completed handoff instead of being
+        // rejected as stale.
+        output.stderr.push(
+          yellow(
+            `[HANDOFF] refreshing stale design handoff: previous hash ${initialProjection.classic.handoffHash}`,
+          ),
+        );
       }
 
       await ensureClassicProjectDirectory(

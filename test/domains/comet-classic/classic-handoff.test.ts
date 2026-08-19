@@ -24,16 +24,11 @@ afterEach(async () => {
   );
 });
 
-function run(cwd: string, ...args: (string | { env?: Record<string, string> })[]) {
-  const [command, ...restArgs] = args;
-  const last = restArgs[restArgs.length - 1];
-  const hasOptions = typeof last === 'object' && last !== null;
-  const envOptions = hasOptions ? (last as { env?: Record<string, string> }).env : undefined;
-  const rest = (hasOptions ? restArgs.slice(0, -1) : restArgs) as string[];
+function run(cwd: string, ...args: string[]) {
+  const [command, ...rest] = args;
   return spawnSync(process.execPath, [scriptByCommand[command as string], ...rest], {
     cwd,
     encoding: 'utf8',
-    env: { ...process.env, ...envOptions },
   });
 }
 
